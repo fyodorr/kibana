@@ -209,6 +209,7 @@ module.exports = {
     {
       files: [
         'test/functional/services/lib/leadfoot_element_wrapper/scroll_into_view_if_necessary.js',
+        '**/browser_exec_scripts/**/*',
       ],
       rules: {
         'prefer-object-spread/prefer-object-spread': 'off',
@@ -220,6 +221,7 @@ module.exports = {
           'ArrowFunctionExpression',
           'AwaitExpression',
           'ClassDeclaration',
+          'ImportDeclaration',
           'RestElement',
           'SpreadElement',
           'YieldExpression',
@@ -285,16 +287,6 @@ module.exports = {
     },
 
     /**
-     * X-Pack global overrides
-     */
-    {
-      files: ['x-pack/**/*'],
-      rules: {
-        quotes: 'off',
-      },
-    },
-
-    /**
      * Files that require Elastic license headers instead of Apache 2.0 header
      */
     {
@@ -331,7 +323,7 @@ module.exports = {
      * GIS overrides
      */
     {
-      files: ['x-pack/plugins/gis/**/*'],
+      files: ['x-pack/plugins/maps/**/*'],
       rules: {
         'react/prefer-stateless-function': [0, { ignorePureComponents: false }],
       },
@@ -366,7 +358,6 @@ module.exports = {
     {
       files: ['x-pack/plugins/ml/**/*'],
       rules: {
-        quotes: 'error',
         'no-shadow': 'error',
       },
     },
