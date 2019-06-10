@@ -16,9 +16,10 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
 interface SavedObjectsSchemaTypeDefinition {
   isNamespaceAgnostic: boolean;
+  hidden?: boolean;
+  indexPattern?: string;
 }
 
 export interface SavedObjectsSchemaDefinition {
@@ -29,6 +30,22 @@ export class SavedObjectsSchema {
   private readonly definition?: SavedObjectsSchemaDefinition;
   constructor(schemaDefinition?: SavedObjectsSchemaDefinition) {
     this.definition = schemaDefinition;
+  }
+
+  public isHiddenType(type: string) {
+    if (this.definition && this.definition.hasOwnProperty(type)) {
+      return Boolean(this.definition[type].hidden);
+    }
+
+    return false;
+  }
+
+  public getIndexForType(type: string): string | undefined {
+    if (this.definition != null && this.definition.hasOwnProperty(type)) {
+      return this.definition[type].indexPattern;
+    } else {
+      return undefined;
+    }
   }
 
   public isNamespaceAgnostic(type: string) {

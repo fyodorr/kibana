@@ -19,17 +19,13 @@
 
 import d3 from 'd3';
 import _ from 'lodash';
-import { VislibComponentsZeroInjectionInjectZerosProvider } from '../components/zero_injection/inject_zeros';
-import { VislibComponentsZeroInjectionOrderedXKeysProvider } from '../components/zero_injection/ordered_x_keys';
-import { VislibComponentsLabelsLabelsProvider } from '../components/labels/labels';
+import { injectZeros } from '../components/zero_injection/inject_zeros';
+import { orderXValues } from '../components/zero_injection/ordered_x_keys';
+import { labels } from '../components/labels/labels';
 import { VislibComponentsColorColorProvider } from '../../vis/components/color/color';
 import { getFormat } from '../../visualize/loader/pipeline_helpers/utilities';
 
 export function VislibLibDataProvider(Private) {
-
-  const injectZeros = Private(VislibComponentsZeroInjectionInjectZerosProvider);
-  const orderKeys = Private(VislibComponentsZeroInjectionOrderedXKeysProvider);
-  const getLabels = Private(VislibComponentsLabelsLabelsProvider);
   const color = Private(VislibComponentsColorColorProvider);
 
   /**
@@ -61,16 +57,20 @@ export function VislibLibDataProvider(Private) {
           } else {
             newData[key] = data[key].map(seri => {
               const converter = getFormat(seri.format);
+              const zConverter = getFormat(seri.zFormat);
               return {
                 id: seri.id,
+                rawId: seri.rawId,
                 label: seri.label,
+                zLabel: seri.zLabel,
                 values: seri.values.map(val => {
                   const newVal = _.clone(val);
                   newVal.extraMetrics = val.extraMetrics;
                   newVal.series = val.series || seri.label;
                   return newVal;
                 }),
-                yAxisFormatter: val => converter.convert(val)
+                yAxisFormatter: val => converter.convert(val),
+                zAxisFormatter: val => zConverter.convert(val)
               };
             });
           }
@@ -105,7 +105,7 @@ export function VislibLibDataProvider(Private) {
 
     _getLabels(data) {
       if (this.type === 'series') {
-        return getLabels(data);
+        return labels(data);
       }
       return [];
     }
@@ -437,7 +437,7 @@ export function VislibLibDataProvider(Private) {
      * @returns {Array} Array of x axis values
      */
     xValues(orderBucketsBySum = false) {
-      return orderKeys(this.data, orderBucketsBySum);
+      return orderXValues(this.data, orderBucketsBySum);
     }
 
     /**
@@ -449,7 +449,7 @@ export function VislibLibDataProvider(Private) {
      * @returns {Array} Array of labels (strings)
      */
     getLabels() {
-      return getLabels(this.data);
+      return labels(this.data);
     }
 
     /**

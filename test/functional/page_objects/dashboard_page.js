@@ -18,7 +18,6 @@
  */
 
 import _ from 'lodash';
-
 import { DashboardConstants } from '../../../src/legacy/core_plugins/kibana/public/dashboard/dashboard_constants';
 
 export const PIE_CHART_VIS_NAME = 'Visualization PieChart';
@@ -55,7 +54,6 @@ export function DashboardPageProvider({ getService, getPageObjects }) {
         'defaultIndex': defaultIndex,
       });
       await this.selectDefaultIndex(defaultIndex);
-      await kibanaServer.uiSettings.disableToastAutohide();
       await PageObjects.common.navigateToApp('dashboard');
     }
 
@@ -219,13 +217,14 @@ export function DashboardPageProvider({ getService, getPageObjects }) {
     }
 
     async clickNewDashboard() {
-      // newDashboardLink button is only visible when dashboard listing table is displayed (at least one dashboard).
-      const exists = await testSubjects.exists('newDashboardLink');
+      // newItemButton button is only visible when dashboard listing table is displayed
+      // (at least one dashboard).
+      const exists = await testSubjects.exists('newItemButton');
       if (exists) {
-        return await testSubjects.click('newDashboardLink');
+        return await testSubjects.click('newItemButton');
       }
 
-      // no dashboards exist, click createDashboardPromptButton to create new dashboard
+      // If no dashboards exist, then newItemButton to create a new dashboard.
       return await this.clickCreateDashboardPrompt();
     }
 
@@ -251,7 +250,7 @@ export function DashboardPageProvider({ getService, getPageObjects }) {
     }
 
     async clickDeleteSelectedDashboards() {
-      await testSubjects.click('deleteSelectedDashboards');
+      await testSubjects.click('deleteSelectedItems');
     }
 
     async isOptionsOpen() {
@@ -306,9 +305,9 @@ export function DashboardPageProvider({ getService, getPageObjects }) {
      * verify that the save was successful
      *
      * @param dashName {String}
-     * @param saveOptions {{storeTimeWithDashboard: boolean, saveAsNew: boolean, needsConfirm: false}}
+     * @param saveOptions {{storeTimeWithDashboard: boolean, saveAsNew: boolean, needsConfirm: false,  waitDialogIsClosed: boolean }}
      */
-    async saveDashboard(dashName, saveOptions = {}) {
+    async saveDashboard(dashName, saveOptions = { waitDialogIsClosed: true }) {
       await this.enterDashboardTitleAndClickSave(dashName, saveOptions);
 
       if (saveOptions.needsConfirm) {
@@ -348,15 +347,19 @@ export function DashboardPageProvider({ getService, getPageObjects }) {
       await testSubjects.clickWhenNotDisabled('confirmSaveSavedObjectButton');
     }
 
+    async pressEnterKey() {
+      log.debug('DashboardPage.pressEnterKey');
+      await PageObjects.common.pressEnterKey();
+    }
+
     /**
      *
      * @param dashboardTitle {String}
-     * @param saveOptions {{storeTimeWithDashboard: boolean, saveAsNew: boolean}}
+     * @param saveOptions {{storeTimeWithDashboard: boolean, saveAsNew: boolean, waitDialogIsClosed: boolean}}
      */
-    async enterDashboardTitleAndClickSave(dashboardTitle, saveOptions = {}) {
+    async enterDashboardTitleAndClickSave(dashboardTitle, saveOptions = { waitDialogIsClosed: true }) {
       await testSubjects.click('dashboardSaveMenuItem');
-
-      await PageObjects.header.waitUntilLoadingHasFinished();
+      const modalDialog = await testSubjects.find('savedObjectSaveModal');
 
       log.debug('entering new title');
       await testSubjects.setValue('savedObjectTitle', dashboardTitle);
@@ -370,6 +373,23 @@ export function DashboardPageProvider({ getService, getPageObjects }) {
       }
 
       await this.clickSave();
+      if (saveOptions.waitDialogIsClosed) {
+        await testSubjects.waitForDeleted(modalDialog);
+      }
+    }
+
+    /**
+     * @param dashboardTitle {String}
+     */
+    async enterDashboardTitleAndPressEnter(dashboardTitle) {
+      await testSubjects.click('dashboardSaveMenuItem');
+      const modalDialog = await testSubjects.find('savedObjectSaveModal');
+
+      log.debug('entering new title');
+      await testSubjects.setValue('savedObjectTitle', dashboardTitle);
+
+      await this.pressEnterKey();
+      await testSubjects.waitForDeleted(modalDialog);
     }
 
     async selectDashboard(dashName) {
@@ -382,15 +402,20 @@ export function DashboardPageProvider({ getService, getPageObjects }) {
       await this.gotoDashboardLandingPage();
 
       await retry.try(async () => {
-        const searchFilter = await testSubjects.find('searchFilter');
+        const searchFilter = await this.getSearchFilter();
         await searchFilter.clearValue();
         await PageObjects.common.pressEnterKey();
       });
     }
 
     async getSearchFilterValue() {
-      const searchFilter = await testSubjects.find('searchFilter');
+      const searchFilter = await this.getSearchFilter();
       return await searchFilter.getProperty('value');
+    }
+
+    async getSearchFilter() {
+      const searchFilter = await find.allByCssSelector('.euiFieldSearch');
+      return searchFilter[0];
     }
 
     async searchForDashboardWithName(dashName) {
@@ -399,7 +424,7 @@ export function DashboardPageProvider({ getService, getPageObjects }) {
       await this.gotoDashboardLandingPage();
 
       await retry.try(async () => {
-        const searchFilter = await testSubjects.find('searchFilter');
+        const searchFilter = await this.getSearchFilter();
         await searchFilter.clearValue();
         await searchFilter.click();
         // Note: this replacement of - to space is to preserve original logic but I'm not sure why or if it's needed.
@@ -419,7 +444,7 @@ export function DashboardPageProvider({ getService, getPageObjects }) {
       log.debug(`getDashboardCountWithName: ${dashName}`);
 
       await this.searchForDashboardWithName(dashName);
-      const links = await find.allByLinkText(dashName);
+      const links = await testSubjects.findAll(`dashboardListingTitleLink-${dashName.replace(/ /g, '-')}`);
       return links.length;
     }
 
@@ -579,6 +604,22 @@ export function DashboardPageProvider({ getService, getPageObjects }) {
       return await testSubjects.click('dashboardPanelTitlesCheckbox');
     }
 
+    async expectMissingSaveOption() {
+      await testSubjects.missingOrFail('dashboardSaveMenuItem');
+    }
+
+    async getNotLoadedVisualizations(vizList) {
+      const checkList = [];
+      for (const name of vizList) {
+        const isPresent = await testSubjects.exists(
+          `dashboardPanelHeading-${name.replace(/\s+/g, '')}`,
+          { timeout: 10000 }
+        );
+        checkList.push({ name, isPresent });
+      }
+
+      return checkList.filter(viz => viz.isPresent === false).map(viz => viz.name);
+    }
   }
 
   return new DashboardPage();

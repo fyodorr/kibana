@@ -4,7 +4,7 @@
  * you may not use this file except in compliance with the Elastic License.
  */
 
-import expect from 'expect.js';
+import expect from '@kbn/expect';
 import sinon from 'sinon';
 
 import { CONFIG_TELEMETRY } from '../../../../common/constants';
@@ -15,7 +15,6 @@ const getMockInjector = ({ telemetryEnabled }) => {
   const get = sinon.stub();
 
   get.withArgs('telemetryOptedIn').returns(telemetryEnabled);
-  get.withArgs('Notifier').returns(function mockNotifier() { this.notify = sinon.stub(); });
 
   const mockHttp = {
     post: sinon.stub()

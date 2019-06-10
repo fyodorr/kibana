@@ -4,9 +4,18 @@
  * you may not use this file except in compliance with the Elastic License.
  */
 
-import { InfraLogMessageSegment } from '../../../graphql/types';
+import stringify from 'json-stable-stringify';
 
-export function compileFormattingRules(rules: LogMessageFormattingRule[]) {
+import { InfraLogMessageSegment } from '../../../graphql/types';
+import {
+  LogMessageFormattingCondition,
+  LogMessageFormattingInstruction,
+  LogMessageFormattingRule,
+} from './rule_types';
+
+export function compileFormattingRules(
+  rules: LogMessageFormattingRule[]
+): CompiledLogMessageFormattingRule {
   const compiledRules = rules.map(compileRule);
 
   return {
@@ -21,7 +30,7 @@ export function compileFormattingRules(rules: LogMessageFormattingRule[]) {
         )
       )
     ),
-    format: (fields: Fields): InfraLogMessageSegment[] => {
+    format(fields): InfraLogMessageSegment[] {
       for (const compiledRule of compiledRules) {
         if (compiledRule.fulfillsCondition(fields)) {
           return compiledRule.format(fields);
@@ -29,6 +38,9 @@ export function compileFormattingRules(rules: LogMessageFormattingRule[]) {
       }
 
       return [];
+    },
+    fulfillsCondition() {
+      return true;
     },
   };
 }
@@ -125,13 +137,16 @@ const compileFieldReferenceFormattingInstruction = (
   'field' in formattingInstruction
     ? {
         formattingFields: [formattingInstruction.field],
-        format: (fields: Fields) => [
-          {
-            field: formattingInstruction.field,
-            value: `${fields[formattingInstruction.field]}`,
-            highlights: [],
-          },
-        ],
+        format: (fields: Fields) => {
+          const value = fields[formattingInstruction.field];
+          return [
+            {
+              field: formattingInstruction.field,
+              value: typeof value === 'object' ? stringify(value) : `${value}`,
+              highlights: [],
+            },
+          ];
+        },
       }
     : null;
 
@@ -150,52 +165,21 @@ const compileConstantFormattingInstruction = (
     : null;
 
 interface Fields {
-  [fieldName: string]: string | number | boolean | null;
+  [fieldName: string]: string | number | object | boolean | null;
 }
 
-interface LogMessageFormattingRule {
-  when: LogMessageFormattingCondition;
-  format: LogMessageFormattingInstruction[];
-}
-
-type LogMessageFormattingCondition =
-  | LogMessageFormattingExistsCondition
-  | LogMessageFormattingFieldValueCondition;
-
-interface LogMessageFormattingExistsCondition {
-  exists: string[];
-}
-
-interface LogMessageFormattingFieldValueCondition {
-  values: {
-    [fieldName: string]: string | number | boolean | null;
-  };
-}
-
-type LogMessageFormattingInstruction =
-  | LogMessageFormattingFieldReference
-  | LogMessageFormattingConstant;
-
-interface LogMessageFormattingFieldReference {
-  field: string;
-}
-
-interface LogMessageFormattingConstant {
-  constant: string;
-}
-
-interface CompiledLogMessageFormattingRule {
+export interface CompiledLogMessageFormattingRule {
   requiredFields: string[];
   fulfillsCondition(fields: Fields): boolean;
   format(fields: Fields): InfraLogMessageSegment[];
 }
 
-interface CompiledLogMessageFormattingCondition {
+export interface CompiledLogMessageFormattingCondition {
   conditionFields: string[];
   fulfillsCondition(fields: Fields): boolean;
 }
 
-interface CompiledLogMessageFormattingInstruction {
+export interface CompiledLogMessageFormattingInstruction {
   formattingFields: string[];
   format(fields: Fields): InfraLogMessageSegment[];
 }

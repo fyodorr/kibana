@@ -4,7 +4,7 @@
  * you may not use this file except in compliance with the Elastic License.
  */
 
-import expect from 'expect.js';
+import expect from '@kbn/expect';
 import sinon from 'sinon';
 
 import { CONFIG_TELEMETRY } from '../../../../common/constants';
@@ -32,11 +32,6 @@ const getTelemetryOptInProvider = (enabled, { simulateFailure = false } = {}) =>
       }
       if (key === 'telemetryOptedIn') {
         return enabled;
-      }
-      if (key === 'Notifier') {
-        return function mockNotifier() {
-          this.notify = sinon.stub();
-        };
       }
       throw new Error(`unexpected mock injector usage for ${key}`);
     }

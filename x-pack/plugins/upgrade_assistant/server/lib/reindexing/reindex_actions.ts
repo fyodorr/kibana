@@ -19,7 +19,7 @@ import {
   ReindexStatus,
   ReindexStep,
 } from '../../../common/types';
-import { parseIndexName } from './index_settings';
+import { generateNewIndexName } from './index_settings';
 import { FlatSettings } from './types';
 
 // TODO: base on elasticsearch.requestTimeout?
@@ -140,7 +140,7 @@ export const reindexActionsFactory = (
       reindexOp.id,
       { ...reindexOp.attributes, locked: moment().format() },
       { version: reindexOp.version }
-    );
+    ) as Promise<ReindexSavedObject>;
   };
 
   const releaseLock = (reindexOp: ReindexSavedObject) => {
@@ -149,7 +149,7 @@ export const reindexActionsFactory = (
       reindexOp.id,
       { ...reindexOp.attributes, locked: null },
       { version: reindexOp.version }
-    );
+    ) as Promise<ReindexSavedObject>;
   };
 
   // ----- Public interface
@@ -157,7 +157,7 @@ export const reindexActionsFactory = (
     async createReindexOp(indexName: string) {
       return client.create<ReindexOperation>(REINDEX_OP_TYPE, {
         indexName,
-        newIndexName: parseIndexName(indexName).newIndexName,
+        newIndexName: generateNewIndexName(indexName),
         status: ReindexStatus.inProgress,
         lastCompletedStep: ReindexStep.created,
         locked: null,
@@ -180,7 +180,7 @@ export const reindexActionsFactory = (
       const newAttrs = { ...reindexOp.attributes, locked: moment().format(), ...attrs };
       return client.update<ReindexOperation>(REINDEX_OP_TYPE, reindexOp.id, newAttrs, {
         version: reindexOp.version,
-      });
+      }) as Promise<ReindexSavedObject>;
     },
 
     async runWhileLocked(reindexOp, func) {

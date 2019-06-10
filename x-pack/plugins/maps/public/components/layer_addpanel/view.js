@@ -17,28 +17,41 @@ import {
   EuiCard,
   EuiIcon,
   EuiFlyoutHeader,
-  EuiFlyoutBody,
   EuiFlyoutFooter,
 } from '@elastic/eui';
+import { FormattedMessage } from '@kbn/i18n/react';
+import _ from 'lodash';
 
 export class AddLayerPanel extends Component {
 
   state = {
     sourceType: null,
+    layer: null
   }
 
   _previewLayer = (source) => {
-    const options = { temporary: true };
-    this.layer = source.createDefaultLayer(options, this.props.mapColors);
-    this.props.previewLayer(this.layer);
+    if (!source) {
+      this.setState({ layer: null });
+      this.props.removeTransientLayer();
+      return;
+    }
+
+
+    const layerOptions = this.state.layer
+      ? { style: this.state.layer.getCurrentStyle().getDescriptor() }
+      : {};
+    this.setState({
+      layer: source.createDefaultLayer(layerOptions, this.props.mapColors)
+    },
+    () => this.props.previewLayer(this.state.layer));
   };
 
   _clearSource = () => {
-    this.setState({ sourceType: null });
-
-    if (this.layer) {
-      this.props.removeLayer(this.layer.getId());
-    }
+    this.setState({
+      layer: null,
+      sourceType: null
+    });
+    this.props.removeTransientLayer();
   }
 
   _onSourceTypeChange = (sourceType) => {
@@ -50,21 +63,23 @@ export class AddLayerPanel extends Component {
       return null;
     }
 
-    const { layerLoading, temporaryLayers, nextAction } = this.props;
+    const {  hasLayerSelected, isLoading, selectLayerAndAdd } = this.props;
     return (
       <EuiButton
-        disabled={!temporaryLayers || layerLoading}
-        isLoading={layerLoading}
+        disabled={!hasLayerSelected}
+        isLoading={hasLayerSelected && isLoading}
         iconSide="right"
         iconType={'sortRight'}
         onClick={() => {
-          const layerId = this.layer.getId();
-          this.layer = null;
-          return nextAction(layerId);
+          this.setState({ layer: null });
+          selectLayerAndAdd();
         }}
         fill
       >
-        Add layer
+        <FormattedMessage
+          id="xpack.maps.addLayerPanel.addLayerButtonLabel"
+          defaultMessage="Add layer"
+        />
       </EuiButton>
     );
   }
@@ -84,6 +99,7 @@ export class AddLayerPanel extends Component {
             onClick={() => this._onSourceTypeChange(Source.type)}
             description={Source.description}
             layout="horizontal"
+            data-test-subj={_.camelCase(Source.title)}
           />
         </Fragment>
       );
@@ -94,7 +110,12 @@ export class AddLayerPanel extends Component {
     return (
       <Fragment>
         <EuiTitle size="xs">
-          <h2>Choose data source</h2>
+          <h2>
+            <FormattedMessage
+              id="xpack.maps.addLayerPanel.chooseDataSourceTitle"
+              defaultMessage="Choose data source"
+            />
+          </h2>
         </EuiTitle>
         {this._renderSourceCards()}
       </Fragment>
@@ -122,7 +143,10 @@ export class AddLayerPanel extends Component {
           onClick={this._clearSource}
           iconType="arrowLeft"
         >
-          Change data source
+          <FormattedMessage
+            id="xpack.maps.addLayerPanel.changeDataSourceButtonLabel"
+            defaultMessage="Change data source"
+          />
         </EuiButtonEmpty>
         <EuiSpacer size="s" />
         <EuiPanel>
@@ -148,13 +172,20 @@ export class AddLayerPanel extends Component {
       >
         <EuiFlyoutHeader hasBorder className="mapLayerPanel__header">
           <EuiTitle size="s">
-            <h2>Add layer</h2>
+            <h2>
+              <FormattedMessage
+                id="xpack.maps.addLayerPanel.panelTitle"
+                defaultMessage="Add layer"
+              />
+            </h2>
           </EuiTitle>
         </EuiFlyoutHeader>
 
-        <EuiFlyoutBody className="mapLayerPanel__body">
-          {this._renderAddLayerForm()}
-        </EuiFlyoutBody>
+        <div className="mapLayerPanel__body" data-test-subj="layerAddForm">
+          <div className="mapLayerPanel__bodyOverflow">
+            {this._renderAddLayerForm()}
+          </div>
+        </div>
 
         <EuiFlyoutFooter className="mapLayerPanel__footer">
           <EuiFlexGroup justifyContent="spaceBetween" responsive={false}>
@@ -162,8 +193,12 @@ export class AddLayerPanel extends Component {
               <EuiButtonEmpty
                 onClick={this.props.closeFlyout}
                 flush="left"
+                data-test-subj="layerAddCancelButton"
               >
-                Cancel
+                <FormattedMessage
+                  id="xpack.maps.addLayerPanel.cancelButtonLabel"
+                  defaultMessage="Cancel"
+                />
               </EuiButtonEmpty>
             </EuiFlexItem>
             <EuiFlexItem grow={false}>

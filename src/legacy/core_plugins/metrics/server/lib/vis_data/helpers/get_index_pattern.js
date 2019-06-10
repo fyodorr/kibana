@@ -16,26 +16,40 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+import { get } from  'lodash';
 
 export async function getIndexPatternObject(req, indexPatternString) {
+  let defaultIndex;
+
+  if (!indexPatternString) {
+    defaultIndex = await req.getUiSettingsService().get('defaultIndex');
+  }
+
   // getting the matching index pattern
   const savedObjectClient = req.getSavedObjectsClient();
   const indexPatternObjects = await savedObjectClient.find({
     type: 'index-pattern',
-    fields: ['title', 'fields'],
-    search: `"${indexPatternString}"`,
+    fields: ['title', 'fields', 'timeFieldName'],
+    search: indexPatternString ? `"${indexPatternString}"` : null,
     search_fields: ['title'],
   });
 
   // getting the index pattern fields
   const indexPatterns = indexPatternObjects.saved_objects
-    .filter(obj => obj.attributes.title === indexPatternString)
+    .filter(obj => obj.attributes.title === indexPatternString || (defaultIndex && obj.id === defaultIndex))
     .map(indexPattern => {
-      const { title, fields } = indexPattern.attributes;
+      const { title, fields, timeFieldName } = indexPattern.attributes;
       return {
         title,
+        timeFieldName,
         fields: JSON.parse(fields),
       };
     });
-  return indexPatterns.length === 1 ? indexPatterns[0] : null;
+
+  const indexPatternObject = indexPatterns.length === 1 ? indexPatterns[0] : null;
+
+  return {
+    indexPatternObject,
+    indexPatternString: indexPatternString || get(indexPatternObject, 'title', '')
+  };
 }
